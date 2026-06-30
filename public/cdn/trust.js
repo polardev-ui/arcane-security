@@ -12,18 +12,12 @@
     '.arcane-trust-header .label{margin-left:auto;font-size:11px;color:rgba(255,255,255,0.3)}' +
     '.arcane-trust-body{text-align:center;padding:16px 0}' +
     '.arcane-trust-body p{font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:16px}' +
-    '.arcane-trust-btn{background:#fff;color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity 0.2s;font-family:inherit}' +
-    '.arcane-trust-btn:hover{opacity:0.9}' +
     '.arcane-trust-spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:rgba(255,255,255,0.6);border-radius:50%;animation:arcane-spin 0.8s linear infinite;margin:0 auto 8px}' +
     '@keyframes arcane-spin{to{transform:rotate(360deg)}}' +
     '.arcane-trust-check{width:40px;height:40px;margin:0 auto 8px;color:#4ade80}' +
     '.arcane-trust-cross{width:40px;height:40px;margin:0 auto 8px;color:#f87171}' +
     '.arcane-trust-result-title{font-size:14px;font-weight:500;margin-bottom:4px}' +
     '.arcane-trust-result-sub{font-size:12px;color:rgba(255,255,255,0.4)}' +
-    '.arcane-trust-reset{background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:12px;margin-top:12px}' +
-    '.arcane-trust-reset:hover{color:#fff}' +
-
-    /* Overlay styles */
     '.arcane-overlay{position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}' +
     '.arcane-overlay-card{background:#111;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:40px;max-width:420px;width:90%;text-align:center}' +
     '.arcane-overlay-card .shield{width:48px;height:48px;margin:0 auto 16px;color:rgba(255,255,255,0.8)}' +
@@ -35,10 +29,7 @@
     '@keyframes arcane-progress{0%{width:0%}30%{width:30%}60%{width:65%}90%{width:85%}100%{width:100%}}' +
     '.arcane-overlay-card .challenge-id{color:rgba(255,255,255,0.2);font-size:11px;font-family:monospace}' +
     '.arcane-overlay-card .retry-btn{background:rgba(255,255,255,0.1);color:#fff;border:none;padding:8px 20px;border-radius:8px;font-size:13px;cursor:pointer;margin-top:16px}' +
-    '.arcane-overlay-card .retry-btn:hover{background:rgba(255,255,255,0.2)}' +
-
-    /* Badge styles */
-    '.arcane-powered{text-align:center;font-size:10px;color:rgba(255,255,255,0.2);margin-top:8px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}'
+    '.arcane-overlay-card .retry-btn:hover{background:rgba(255,255,255,0.2)}'
   );
 
   var ICONS = {
@@ -79,12 +70,11 @@
     if (window._phantom || window.callPhantom) score += 5;
     if (navigator.userAgent.indexOf('Headless') !== -1) score += 3;
     if (document.hidden !== undefined && document.visibilityState === 'prerender') score += 1;
-    var ref = Math.random();
-    if (ref < 0.15) score += 2;
+    if (Math.random() < 0.15) score += 2;
     return score >= 3;
   }
 
-  function showFullScreenChallenge(config) {
+  function showFullScreenChallenge() {
     injectStyles();
     var challengeId = generateChallengeId();
     var overlay = document.createElement('div');
@@ -114,7 +104,9 @@
           overlay.style.transition = 'opacity 0.4s ease';
           overlay.style.opacity = '0';
           overlay.style.pointerEvents = 'none';
-          if (config && config.onVerify) config.onVerify(generateToken());
+          overlay.style.zIndex = '0';
+          var token = generateToken();
+          document.dispatchEvent(new CustomEvent('arcane-pass', { detail: { token: token } }));
           setTimeout(function () { overlay.remove(); }, 400);
         } else {
           overlay.innerHTML =
@@ -126,7 +118,7 @@
               '<div class="challenge-id" style="margin-top:16px">Challenge ID: ' + challengeId + '</div>' +
             '</div>';
           var retryBtn = document.getElementById('arcane-retry');
-          if (retryBtn) retryBtn.onclick = function () { overlay.remove(); showFullScreenChallenge(config); };
+          if (retryBtn) retryBtn.onclick = function () { overlay.remove(); showFullScreenChallenge(); };
         }
       }, remaining);
     }
@@ -137,15 +129,7 @@
     }, 2500);
   }
 
-  function enableSubmitBtn(btn) {
-    if (!btn) return;
-    btn.disabled = false;
-    btn.style.opacity = '';
-    btn.style.cursor = '';
-    btn.style.pointerEvents = '';
-  }
-
-  function injectIntoForm(form, config, useOverlay) {
+  function gateForm(form) {
     var submitBtn = form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
     if (!submitBtn) return;
 
@@ -158,68 +142,24 @@
     submitBtn.style.cursor = 'not-allowed';
     submitBtn.style.pointerEvents = 'none';
 
-    var state = 'idle';
-    renderWidget(container, state, function () {
-      state = 'verifying';
-      renderWidget(container, state, null, function () {
-        if (useOverlay) {
-          showFullScreenChallenge({
-            onVerify: function (token) {
-              state = 'passed';
-              renderWidget(container, state);
-              enableSubmitBtn(submitBtn);
-              if (config && config.onVerify) config.onVerify(token);
-            },
-          });
-        } else {
-          setTimeout(function () {
-            var passed = Math.random() > 0.2;
-            state = passed ? 'passed' : 'failed';
-            renderWidget(container, state, function () {
-              if (passed) {
-                enableSubmitBtn(submitBtn);
-                if (config && config.onVerify) config.onVerify(generateToken());
-              }
-            });
-          }, 2000);
-        }
-      });
-    });
-  }
+    var widget = document.createElement('div');
+    widget.className = 'arcane-trust';
+    widget.innerHTML =
+      '<div class="arcane-trust-header">' + ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span></div>' +
+      '<div class="arcane-trust-body"><div class="arcane-trust-spinner"></div><p>Pending verification...</p></div>';
+    container.appendChild(widget);
 
-  function renderWidget(container, state, onVerify, onVerifying) {
-    container.innerHTML = '';
-    var wrapper = document.createElement('div');
-    wrapper.className = 'arcane-trust';
-
-    var header = document.createElement('div');
-    header.className = 'arcane-trust-header';
-    header.innerHTML = ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span>';
-    wrapper.appendChild(header);
-
-    var body = document.createElement('div');
-    body.className = 'arcane-trust-body';
-
-    if (state === 'idle') {
-      body.innerHTML = '<p>Verify you\'re human to continue</p><button type="button" class="arcane-trust-btn" id="aw-btn">' + ICONS.shield + ' Verify Humanity</button>';
-      wrapper.appendChild(body);
-      var btn = wrapper.querySelector('#aw-btn');
-      if (btn && onVerify) btn.onclick = onVerify;
-    } else if (state === 'verifying') {
-      body.innerHTML = '<div class="arcane-trust-spinner"></div><p>Running verification protocols...</p>';
-      wrapper.appendChild(body);
-      if (onVerifying) setTimeout(onVerifying, 100);
-    } else if (state === 'passed') {
-      body.innerHTML = '<div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div>';
-      wrapper.appendChild(body);
-    } else if (state === 'failed') {
-      body.innerHTML = '<div class="arcane-trust-cross">' + ICONS.cross + '</div><div class="arcane-trust-result-title" style="color:#f87171">Verification Failed</div><div class="arcane-trust-result-sub">Please try again</div><button type="button" class="arcane-trust-reset" id="aw-retry">Try Again</button>';
-      wrapper.appendChild(body);
-      var retry = wrapper.querySelector('#aw-retry');
-      if (retry && onVerify) retry.onclick = onVerify;
+    function onPass(e) {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '';
+      submitBtn.style.cursor = '';
+      submitBtn.style.pointerEvents = '';
+      widget.innerHTML =
+        '<div class="arcane-trust-header">' + ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span></div>' +
+        '<div class="arcane-trust-body"><div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div></div>';
     }
 
-    container.appendChild(wrapper);
+    document.addEventListener('arcane-pass', onPass, { once: true });
   }
 
   /* ---- Public API ---- */
@@ -228,74 +168,44 @@
     if (!container) return;
     injectStyles();
 
-    var useOverlay = isSuspicious();
-    var state = 'idle';
     var wrapper = document.createElement('div');
+    wrapper.className = 'arcane-trust';
+    wrapper.innerHTML =
+      '<div class="arcane-trust-header">' + ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span></div>' +
+      '<div class="arcane-trust-body"><div class="arcane-trust-spinner"></div><p>Loading Arcane Trust...</p></div>';
     container.appendChild(wrapper);
 
-    function updateUI() {
-      wrapper.innerHTML = '';
-      var w = document.createElement('div');
-      w.className = 'arcane-trust';
-
-      var header = document.createElement('div');
-      header.className = 'arcane-trust-header';
-      header.innerHTML = ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span>';
-      w.appendChild(header);
-
-      var body = document.createElement('div');
-      body.className = 'arcane-trust-body';
-
-      if (state === 'loading') {
-        body.innerHTML = '<div class="arcane-trust-spinner"></div><p>Loading Arcane Trust...</p>';
-        w.appendChild(body);
-        setTimeout(function () { state = 'ready'; updateUI(); }, 600);
-      } else if (state === 'ready') {
-        body.innerHTML = '<p>Verify you\'re human to continue</p><button type="button" class="arcane-trust-btn" id="aw-r-btn">' + ICONS.shield + ' Verify Humanity</button>';
-        w.appendChild(body);
-        var btn = w.querySelector('#aw-r-btn');
-        if (btn) {
-          btn.onclick = function () {
-            state = 'verifying';
-            updateUI();
-            if (useOverlay) {
-              showFullScreenChallenge(config);
-              state = 'passed';
-            } else {
-              setTimeout(function () {
-                var passed = Math.random() > 0.2;
-                state = passed ? 'passed' : 'failed';
-                updateUI();
-                if (passed && config && config.onVerify) config.onVerify(generateToken());
-              }, 2000);
-            }
-          };
-        }
-      } else if (state === 'verifying') {
-        body.innerHTML = '<div class="arcane-trust-spinner"></div><p>Running verification protocols...</p>';
-        w.appendChild(body);
-      } else if (state === 'passed') {
-        body.innerHTML = '<div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div><button type="button" class="arcane-trust-reset" id="aw-r-reset">Reset</button>';
-        w.appendChild(body);
-        var reset = w.querySelector('#aw-r-reset');
-        if (reset) reset.onclick = function () { state = 'ready'; updateUI(); };
-      } else if (state === 'failed') {
-        body.innerHTML = '<div class="arcane-trust-cross">' + ICONS.cross + '</div><div class="arcane-trust-result-title" style="color:#f87171">Verification Failed</div><div class="arcane-trust-result-sub">Please try again</div><button type="button" class="arcane-trust-reset" id="aw-r-try">Try Again</button>';
-        w.appendChild(body);
-        var retry = w.querySelector('#aw-r-try');
-        if (retry) retry.onclick = function () { state = 'ready'; updateUI(); };
+    setTimeout(function () {
+      wrapper.innerHTML =
+        '<div class="arcane-trust-header">' + ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span></div>' +
+        '<div class="arcane-trust-body"><p>Verify you\'re human to continue</p><button type="button" class="arcane-trust-btn" id="aw-r-btn">' + ICONS.shield + ' Verify Humanity</button></div>';
+      var btn = wrapper.querySelector('#aw-r-btn');
+      if (btn) {
+        btn.onclick = function () {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+          wrapper.innerHTML =
+            '<div class="arcane-trust-header">' + ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span></div>' +
+            '<div class="arcane-trust-body"><div class="arcane-trust-spinner"></div><p>Running verification protocols...</p></div>';
+          showFullScreenChallenge();
+          document.addEventListener('arcane-pass', function (e) {
+            wrapper.innerHTML =
+              '<div class="arcane-trust-header">' + ICONS.shield + '<span>Arcane Trust</span><span class="label">Security Check</span></div>' +
+              '<div class="arcane-trust-body"><div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div></div>';
+            if (config && config.onVerify) config.onVerify(e.detail.token);
+          }, { once: true });
+        };
       }
-
-      wrapper.appendChild(w);
-    }
-
-    state = 'loading';
-    updateUI();
+    }, 600);
   }
 
-  window.ArcaneTrust = { render: render, showChallenge: function(c) { showFullScreenChallenge(c || {}); } };
+  window.ArcaneTrust = {
+    render: render,
+    showChallenge: function () { showFullScreenChallenge(); },
+  };
 
-  /* Auto-init — handles both inline <script> and dynamically injected scripts */
+  /* ---- Boot ---- */
+
   function boot() {
     var script = document.currentScript;
     var siteKey = null;
@@ -314,40 +224,34 @@
     if (!siteKey) {
       if (forceChallenge) {
         injectStyles();
-        showFullScreenChallenge({});
+        showFullScreenChallenge();
       }
       return;
     }
 
     injectStyles();
 
-    /* Auto-verify beacon — fires once to prove the script is running on this domain */
-    var arcaneApi = 'https://arcane.wsgpolar.me/api';
     try {
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', arcaneApi + '/auto-verify', true);
+      xhr.open('POST', 'https://arcane.wsgpolar.me/api/auto-verify', true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.send(JSON.stringify({ siteKey: siteKey }));
-    } catch(e) {} /* silently ignore if endpoint not ready */
+    } catch(e) {}
 
     function scanAndInject() {
       var forms = document.querySelectorAll('form');
-      var found = false;
       var suspicious = forceChallenge || script.getAttribute('data-force-challenge') === 'true' || isSuspicious();
+      var found = false;
 
       for (var i = 0; i < forms.length; i++) {
-        var form = forms[i];
-        var passwordFields = form.querySelectorAll('input[type="password"]');
-        if (passwordFields.length > 0) {
-          injectIntoForm(form, { siteKey: siteKey, onVerify: function(token) {} }, suspicious);
+        if (forms[i].querySelector('input[type="password"]')) {
+          gateForm(forms[i]);
           found = true;
         }
       }
 
-      if (suspicious && !found) {
-        setTimeout(function () {
-          showFullScreenChallenge({ siteKey: siteKey, onVerify: function(token) {} });
-        }, 500);
+      if (suspicious) {
+        setTimeout(function () { showFullScreenChallenge(); }, found ? 800 : 500);
       }
     }
 
