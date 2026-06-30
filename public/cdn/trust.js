@@ -168,7 +168,14 @@
       state = 'verifying';
       renderWidget(container, state, null, function () {
         if (useOverlay) {
-          showFullScreenChallenge(config);
+          showFullScreenChallenge({
+            onVerify: function (token) {
+              state = 'passed';
+              renderWidget(container, state);
+              enableSubmitButtons();
+              if (config && config.onVerify) config.onVerify(token);
+            },
+          });
         } else {
           setTimeout(function () {
             var passed = Math.random() > 0.2;
@@ -341,10 +348,10 @@
         }
       }
 
-      if (suspicious) {
+      if (suspicious && !found) {
         setTimeout(function () {
           showFullScreenChallenge({ siteKey: siteKey, onVerify: function(token) {} });
-        }, found ? 3000 : 500);
+        }, 500);
       }
     }
 
