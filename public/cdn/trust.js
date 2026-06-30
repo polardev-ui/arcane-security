@@ -228,10 +228,12 @@
 
     injectStyles();
 
+    var forceChallenge = script.getAttribute('data-force-challenge') === 'true' || window.location.search.indexOf('arcane_challenge=true') !== -1;
+
     function scanAndInject() {
       var forms = document.querySelectorAll('form');
       var found = false;
-      var suspicious = isSuspicious();
+      var suspicious = forceChallenge || isSuspicious();
 
       for (var i = 0; i < forms.length; i++) {
         var form = forms[i];
