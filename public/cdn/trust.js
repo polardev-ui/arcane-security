@@ -113,9 +113,10 @@
         if (success) {
           overlay.style.transition = 'opacity 0.4s ease';
           overlay.style.opacity = '0';
-          setTimeout(function () { overlay.remove(); }, 400);
+          overlay.style.pointerEvents = 'none';
           if (config && config.onVerify) config.onVerify(generateToken());
           enableSubmitButtons();
+          setTimeout(function () { overlay.remove(); }, 400);
         } else {
           overlay.innerHTML =
             '<div class="arcane-overlay-card">' +
@@ -328,11 +329,12 @@
 
     /* Auto-verify beacon — fires once to prove the script is running on this domain */
     var arcaneApi = 'https://arcane.wsgpolar.me/api';
-    fetch(arcaneApi + '/auto-verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ siteKey: siteKey }),
-    }).catch(function() {});
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', arcaneApi + '/auto-verify', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify({ siteKey: siteKey }));
+    } catch(e) {} /* silently ignore if endpoint not ready */
 
     function scanAndInject() {
       var forms = document.querySelectorAll('form');
