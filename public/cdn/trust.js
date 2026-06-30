@@ -319,6 +319,14 @@
 
     injectStyles();
 
+    /* Auto-verify beacon — fires once to prove the script is running on this domain */
+    var arcaneApi = 'https://arcane.wsgpolar.me/api';
+    fetch(arcaneApi + '/auto-verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteKey: siteKey }),
+    }).catch(function() {});
+
     function scanAndInject() {
       var forms = document.querySelectorAll('form');
       var found = false;

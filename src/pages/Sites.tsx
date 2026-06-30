@@ -16,6 +16,7 @@ interface Site {
   verification_status: string
   verification_code: string | null
   verified_at: string | null
+  verification_method: string | null
   scanned_pages: ScannedPage[]
   last_scanned_at: string | null
   created_at: string
@@ -288,41 +289,56 @@ export default function Sites() {
                         </div>
                         {site.verification_status === 'verified' ? (
                           <div className="text-sm text-green-400/80 bg-green-500/5 border border-green-500/10 rounded-lg p-3">
-                            Site verified on {new Date(site.verified_at!).toLocaleDateString()}
+                            Site verified {site.verification_method === 'auto' ? 'automatically via script' : ''} on {new Date(site.verified_at!).toLocaleDateString()}
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            <p className="text-sm text-white/60">
-                              Create a text file at the root of your site with the following content:
-                            </p>
-                            <div className="bg-black border border-white/10 rounded-lg overflow-hidden">
-                              <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
-                                <span className="text-xs text-white/40">
-                                  https://{site.domain}/arcane-verify.txt
-                                </span>
+                            <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg p-3">
+                              <p className="text-sm text-blue-300/90 font-medium mb-1">Quick: Install the script</p>
+                              <p className="text-sm text-blue-300/60">
+                                Add the script from the <strong>Integration</strong> section below to your site.
+                                When it loads, it will automatically verify your ownership — no files needed.
+                              </p>
+                            </div>
+                            <details className="group">
+                              <summary className="text-xs text-white/40 hover:text-white/60 cursor-pointer list-none flex items-center gap-1">
+                                <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                                Manual: file-based verification
+                              </summary>
+                              <div className="mt-3 space-y-3">
+                                <p className="text-sm text-white/60">
+                                  Create a text file at the root of your site with the following content:
+                                </p>
+                                <div className="bg-black border border-white/10 rounded-lg overflow-hidden">
+                                  <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+                                    <span className="text-xs text-white/40">
+                                      https://{site.domain}/arcane-verify.txt
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(site.verification_code || '')
+                                        setCopiedCodeId(site.id)
+                                        setTimeout(() => setCopiedCodeId(null), 2000)
+                                      }}
+                                      className="text-white/40 hover:text-white transition-colors"
+                                    >
+                                      {copiedCodeId === site.id ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                    </button>
+                                  </div>
+                                  <div className="p-4">
+                                    <code className="text-sm text-white/80 font-mono break-all">{site.verification_code}</code>
+                                  </div>
+                                </div>
                                 <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(site.verification_code || '')
-                                    setCopiedCodeId(site.id)
-                                    setTimeout(() => setCopiedCodeId(null), 2000)
-                                  }}
-                                  className="text-white/40 hover:text-white transition-colors"
+                                  onClick={() => handleVerify(site)}
+                                  disabled={verifyingId === site.id}
+                                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all inline-flex items-center gap-2 disabled:opacity-50"
                                 >
-                                  {copiedCodeId === site.id ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                  {verifyingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                                  {verifyingId === site.id ? 'Checking...' : 'Verify Ownership'}
                                 </button>
                               </div>
-                              <div className="p-4">
-                                <code className="text-sm text-white/80 font-mono break-all">{site.verification_code}</code>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleVerify(site)}
-                              disabled={verifyingId === site.id}
-                              className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all inline-flex items-center gap-2 disabled:opacity-50"
-                            >
-                              {verifyingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-                              {verifyingId === site.id ? 'Checking...' : 'Verify Ownership'}
-                            </button>
+                            </details>
                             {verifyError && <p className="text-sm text-red-400">{verifyError}</p>}
                           </div>
                         )}
