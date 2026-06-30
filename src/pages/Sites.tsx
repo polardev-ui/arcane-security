@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Globe, Plus, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Globe, Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck, Loader2, Shield, RefreshCw, FileText, Search, Code } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+
+interface ScannedPage {
+  path: string
+  hasForm: boolean
+}
 
 interface Site {
   id: string
   domain: string
   name: string
   is_active: boolean
+  verification_status: string
+  verification_code: string | null
+  verified_at: string | null
+  scanned_pages: ScannedPage[] | null
+  last_scanned_at: string | null
   created_at: string
 }
 
@@ -18,6 +28,11 @@ export default function Sites() {
   const [name, setName] = useState('')
   const [domain, setDomain] = useState('')
   const [error, setError] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [verifyingId, setVerifyingId] = useState<string | null>(null)
+  const [scanningId, setScanningId] = useState<string | null>(null)
+  const [verifyError, setVerifyError] = useState('')
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null)
 
   const fetchSites = async () => {
     const { data } = await supabase.from('sites').select('*').order('created_at', { ascending: false })
@@ -27,6 +42,13 @@ export default function Sites() {
 
   useEffect(() => { fetchSites() }, [])
 
+  const generateCode = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    let code = 'arcane-verify='
+    for (let i = 0; i < 32; i++) code += chars[Math.floor(Math.random() * chars.length)]
+    return code
+  }
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -34,10 +56,14 @@ export default function Sites() {
     const { data: user } = await supabase.auth.getUser()
     if (!user.user) return
 
+    const verificationCode = generateCode()
+
     const { error: err } = await supabase.from('sites').insert({
       user_id: user.user.id,
       name,
       domain: domain.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+      verification_code: verificationCode,
+      verification_status: 'pending',
     })
 
     if (err) {
@@ -58,6 +84,60 @@ export default function Sites() {
   const toggleActive = async (id: string, current: boolean) => {
     await supabase.from('sites').update({ is_active: !current }).eq('id', id)
     fetchSites()
+  }
+
+  const handleVerify = async (site: Site) => {
+    setVerifyingId(site.id)
+    setVerifyError('')
+
+    const { data: session } = await supabase.auth.getSession()
+    const token = session?.session?.access_token
+    if (!token) { setVerifyError('Not authenticated'); setVerifyingId(null); return }
+
+    try {
+      const resp = await fetch('/api/verify-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteId: site.id,
+          domain: site.domain,
+          verificationCode: site.verification_code,
+          token,
+        }),
+      })
+      const result = await resp.json()
+      if (result.verified) {
+        fetchSites()
+      } else {
+        setVerifyError(result.error || 'Verification failed')
+      }
+    } catch (err: any) {
+      setVerifyError(err.message)
+    }
+    setVerifyingId(null)
+  }
+
+  const handleScan = async (site: Site) => {
+    setScanningId(site.id)
+
+    const { data: session } = await supabase.auth.getSession()
+    const token = session?.session?.access_token
+    if (!token) return
+
+    try {
+      await fetch('/api/scan-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId: site.id, domain: site.domain, token }),
+      })
+      fetchSites()
+    } catch {}
+    setScanningId(null)
+  }
+
+  const toggleExpand = (id: string) => {
+    setExpandedId(expandedId === id ? null : id)
+    setVerifyError('')
   }
 
   if (loading) {
@@ -139,32 +219,175 @@ export default function Sites() {
       ) : (
         <div className="space-y-3">
           {sites.map((site) => (
-            <div key={site.id} className="bg-white/[0.03] border border-white/10 rounded-xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Globe className="w-5 h-5 text-white/60" />
-                <div>
-                  <p className="text-white font-medium">{site.name}</p>
-                  <p className="text-white/50 text-sm">{site.domain}</p>
+            <div key={site.id}>
+              <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4 min-w-0">
+                  <Globe className="w-5 h-5 text-white/60 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-white font-medium truncate">{site.name}</p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-white/50 truncate">{site.domain}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        site.verification_status === 'verified'
+                          ? 'bg-green-500/10 text-green-400'
+                          : site.verification_status === 'failed'
+                          ? 'bg-red-500/10 text-red-400'
+                          : 'bg-yellow-500/10 text-yellow-400'
+                      }`}>
+                        {site.verification_status === 'verified' ? 'Verified' : site.verification_status === 'failed' ? 'Failed' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => toggleExpand(site.id)}
+                    className="text-white/40 hover:text-white transition-colors p-1"
+                  >
+                    {expandedId === site.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => toggleActive(site.id, site.is_active)}
+                    className={`text-xs px-3 py-1 rounded-full border transition-all ${
+                      site.is_active
+                        ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                        : 'bg-white/5 text-white/40 border-white/10'
+                    }`}
+                  >
+                    {site.is_active ? 'Active' : 'Paused'}
+                  </button>
+                  <button onClick={() => handleDelete(site.id)} className="text-white/30 hover:text-red-400 transition-colors p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => toggleActive(site.id, site.is_active)}
-                  className={`text-xs px-3 py-1 rounded-full border transition-all ${
-                    site.is_active
-                      ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                      : 'bg-white/5 text-white/40 border-white/10'
-                  }`}
-                >
-                  {site.is_active ? 'Active' : 'Paused'}
-                </button>
-                <button
-                  onClick={() => handleDelete(site.id)}
-                  className="text-white/30 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+
+              <AnimatePresence>
+                {expandedId === site.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-white/[0.02] border-x border-b border-white/10 rounded-b-xl p-5 -mt-1 space-y-6">
+                      {/* Verification Section */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Shield className="w-4 h-4 text-white/60" />
+                          <h4 className="text-sm font-medium text-white">Ownership Verification</h4>
+                          {site.verification_status === 'verified' && (
+                            <span className="text-xs text-green-400">Complete</span>
+                          )}
+                        </div>
+                        {site.verification_status === 'verified' ? (
+                          <div className="text-sm text-green-400/80 bg-green-500/5 border border-green-500/10 rounded-lg p-3">
+                            Site verified on {new Date(site.verified_at!).toLocaleDateString()}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-sm text-white/60">
+                              Create a text file at the root of your site with the following content:
+                            </p>
+                            <div className="bg-black border border-white/10 rounded-lg overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+                                <span className="text-xs text-white/40">
+                                  https://{site.domain}/arcane-verify.txt
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(site.verification_code || '')
+                                    setCopiedCodeId(site.id)
+                                    setTimeout(() => setCopiedCodeId(null), 2000)
+                                  }}
+                                  className="text-white/40 hover:text-white transition-colors"
+                                >
+                                  {copiedCodeId === site.id ? <CheckCheck className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                              </div>
+                              <div className="p-4">
+                                <code className="text-sm text-white/80 font-mono break-all">{site.verification_code}</code>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleVerify(site)}
+                              disabled={verifyingId === site.id}
+                              className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all inline-flex items-center gap-2 disabled:opacity-50"
+                            >
+                              {verifyingId === site.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                              {verifyingId === site.id ? 'Checking...' : 'Verify Ownership'}
+                            </button>
+                            {verifyError && <p className="text-sm text-red-400">{verifyError}</p>}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Scan Section */}
+                      {site.verification_status === 'verified' && (
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <Search className="w-4 h-4 text-white/60" />
+                              <h4 className="text-sm font-medium text-white">Page Scan</h4>
+                            </div>
+                            <button
+                              onClick={() => handleScan(site)}
+                              disabled={scanningId === site.id}
+                              className="text-white/40 hover:text-white transition-colors text-xs flex items-center gap-1"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${scanningId === site.id ? 'animate-spin' : ''}`} />
+                              {scanningId === site.id ? 'Scanning...' : 'Rescan'}
+                            </button>
+                          </div>
+                          {site.scanned_pages && site.scanned_pages.length > 0 ? (
+                            <div className="space-y-2">
+                              {site.scanned_pages.filter(p => p.hasForm).length === 0 && (
+                                <p className="text-sm text-white/40">No login or registration pages found.</p>
+                              )}
+                              {site.scanned_pages.filter(p => p.hasForm).map((page) => (
+                                <div key={page.path} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-lg px-3 py-2">
+                                  <FileText className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                  <span className="text-sm text-white/80 font-mono">{page.path}</span>
+                                  <span className="text-xs text-green-400/80 ml-auto">Form detected</span>
+                                </div>
+                              ))}
+                              <p className="text-xs text-white/30 mt-1">
+                                Scanned {site.scanned_pages.length} paths — {site.scanned_pages.filter(p => p.hasForm).length} forms found
+                              </p>
+                            </div>
+                          ) : scanningId === site.id ? (
+                            <div className="flex items-center gap-2 text-sm text-white/40">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Scanning common paths...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-sm text-white/40">
+                              <Search className="w-4 h-4" />
+                              Click scan to find login &amp; registration pages
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* CDN Integration */}
+                      {site.verification_status === 'verified' && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Code className="w-4 h-4 text-white/60" />
+                            <h4 className="text-sm font-medium text-white">Integration</h4>
+                          </div>
+                          <p className="text-sm text-white/60 mb-2">
+                            Add this script to your site's <code className="text-white bg-white/5 px-1 rounded">&lt;head&gt;</code>:
+                          </p>
+                          <pre className="bg-black border border-white/10 rounded-lg p-3 text-xs overflow-x-auto">
+                            <code className="text-white/70">{`<script src="https://arcane.wsgpolar.me/cdn/trust.js" data-site-key="${site.id}"></script>`}</code>
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ))}
         </div>
@@ -172,3 +395,5 @@ export default function Sites() {
     </div>
   )
 }
+
+
