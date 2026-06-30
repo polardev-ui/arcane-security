@@ -12,7 +12,7 @@
     '.arcane-trust-header .label{margin-left:auto;font-size:11px;color:rgba(255,255,255,0.3)}' +
     '.arcane-trust-body{text-align:center;padding:16px 0}' +
     '.arcane-trust-body p{font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:16px}' +
-    '.arcane-trust-btn{background:#fff;color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity 0.2s}' +
+    '.arcane-trust-btn{background:#fff;color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:opacity 0.2s;font-family:inherit}' +
     '.arcane-trust-btn:hover{opacity:0.9}' +
     '.arcane-trust-spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,0.1);border-top-color:rgba(255,255,255,0.6);border-radius:50%;animation:arcane-spin 0.8s linear infinite;margin:0 auto 8px}' +
     '@keyframes arcane-spin{to{transform:rotate(360deg)}}' +
@@ -122,7 +122,7 @@
               ICONS.bigShield.replace('stroke="currentColor"', 'stroke="#f87171"') +
               '<h2 style="color:#f87171">Verification Failed</h2>' +
               '<p>Please try again</p>' +
-              '<button class="retry-btn" id="arcane-retry">Retry Verification</button>' +
+              '<button type="button" class="retry-btn" id="arcane-retry">Retry Verification</button>' +
               '<div class="challenge-id" style="margin-top:16px">Challenge ID: ' + challengeId + '</div>' +
             '</div>';
           var retryBtn = document.getElementById('arcane-retry');
@@ -199,7 +199,7 @@
     body.className = 'arcane-trust-body';
 
     if (state === 'idle') {
-      body.innerHTML = '<p>Verify you\'re human to continue</p><button class="arcane-trust-btn" id="aw-btn">' + ICONS.shield + ' Verify Humanity</button>';
+      body.innerHTML = '<p>Verify you\'re human to continue</p><button type="button" class="arcane-trust-btn" id="aw-btn">' + ICONS.shield + ' Verify Humanity</button>';
       wrapper.appendChild(body);
       var btn = wrapper.querySelector('#aw-btn');
       if (btn && onVerify) btn.onclick = onVerify;
@@ -211,7 +211,7 @@
       body.innerHTML = '<div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div>';
       wrapper.appendChild(body);
     } else if (state === 'failed') {
-      body.innerHTML = '<div class="arcane-trust-cross">' + ICONS.cross + '</div><div class="arcane-trust-result-title" style="color:#f87171">Verification Failed</div><div class="arcane-trust-result-sub">Please try again</div><button class="arcane-trust-reset" id="aw-retry">Try Again</button>';
+      body.innerHTML = '<div class="arcane-trust-cross">' + ICONS.cross + '</div><div class="arcane-trust-result-title" style="color:#f87171">Verification Failed</div><div class="arcane-trust-result-sub">Please try again</div><button type="button" class="arcane-trust-reset" id="aw-retry">Try Again</button>';
       wrapper.appendChild(body);
       var retry = wrapper.querySelector('#aw-retry');
       if (retry && onVerify) retry.onclick = onVerify;
@@ -249,7 +249,7 @@
         w.appendChild(body);
         setTimeout(function () { state = 'ready'; updateUI(); }, 600);
       } else if (state === 'ready') {
-        body.innerHTML = '<p>Verify you\'re human to continue</p><button class="arcane-trust-btn" id="aw-r-btn">' + ICONS.shield + ' Verify Humanity</button>';
+        body.innerHTML = '<p>Verify you\'re human to continue</p><button type="button" class="arcane-trust-btn" id="aw-r-btn">' + ICONS.shield + ' Verify Humanity</button>';
         w.appendChild(body);
         var btn = w.querySelector('#aw-r-btn');
         if (btn) {
@@ -273,12 +273,12 @@
         body.innerHTML = '<div class="arcane-trust-spinner"></div><p>Running verification protocols...</p>';
         w.appendChild(body);
       } else if (state === 'passed') {
-        body.innerHTML = '<div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div><button class="arcane-trust-reset" id="aw-r-reset">Reset</button>';
+        body.innerHTML = '<div class="arcane-trust-check">' + ICONS.check + '</div><div class="arcane-trust-result-title" style="color:#4ade80">Verification Passed</div><div class="arcane-trust-result-sub">Human confirmed</div><button type="button" class="arcane-trust-reset" id="aw-r-reset">Reset</button>';
         w.appendChild(body);
         var reset = w.querySelector('#aw-r-reset');
         if (reset) reset.onclick = function () { state = 'ready'; updateUI(); };
       } else if (state === 'failed') {
-        body.innerHTML = '<div class="arcane-trust-cross">' + ICONS.cross + '</div><div class="arcane-trust-result-title" style="color:#f87171">Verification Failed</div><div class="arcane-trust-result-sub">Please try again</div><button class="arcane-trust-reset" id="aw-r-try">Try Again</button>';
+        body.innerHTML = '<div class="arcane-trust-cross">' + ICONS.cross + '</div><div class="arcane-trust-result-title" style="color:#f87171">Verification Failed</div><div class="arcane-trust-result-sub">Please try again</div><button type="button" class="arcane-trust-reset" id="aw-r-try">Try Again</button>';
         w.appendChild(body);
         var retry = w.querySelector('#aw-r-try');
         if (retry) retry.onclick = function () { state = 'ready'; updateUI(); };
