@@ -115,7 +115,6 @@
           overlay.style.opacity = '0';
           overlay.style.pointerEvents = 'none';
           if (config && config.onVerify) config.onVerify(generateToken());
-          enableSubmitButtons();
           setTimeout(function () { overlay.remove(); }, 400);
         } else {
           overlay.innerHTML =
@@ -138,16 +137,12 @@
     }, 2500);
   }
 
-  var gatedForms = [];
-  function enableSubmitButtons() {
-    for (var i = 0; i < gatedForms.length; i++) {
-      var btn = gatedForms[i];
-      btn.disabled = false;
-      btn.style.opacity = '1';
-      btn.style.cursor = 'pointer';
-      btn.style.pointerEvents = 'auto';
-    }
-    gatedForms = [];
+  function enableSubmitBtn(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.style.cursor = '';
+    btn.style.pointerEvents = '';
   }
 
   function injectIntoForm(form, config, useOverlay) {
@@ -162,7 +157,6 @@
     submitBtn.style.opacity = '0.5';
     submitBtn.style.cursor = 'not-allowed';
     submitBtn.style.pointerEvents = 'none';
-    gatedForms.push(submitBtn);
 
     var state = 'idle';
     renderWidget(container, state, function () {
@@ -173,7 +167,7 @@
             onVerify: function (token) {
               state = 'passed';
               renderWidget(container, state);
-              enableSubmitButtons();
+              enableSubmitBtn(submitBtn);
               if (config && config.onVerify) config.onVerify(token);
             },
           });
@@ -183,7 +177,7 @@
             state = passed ? 'passed' : 'failed';
             renderWidget(container, state, function () {
               if (passed) {
-                enableSubmitButtons();
+                enableSubmitBtn(submitBtn);
                 if (config && config.onVerify) config.onVerify(generateToken());
               }
             });
