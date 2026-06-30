@@ -220,44 +220,6 @@
     container.appendChild(wrapper);
   }
 
-  function autoInit() {
-    var script = document.currentScript;
-    if (!script) return;
-    var siteKey = script.getAttribute('data-site-key');
-    if (!siteKey) return;
-
-    injectStyles();
-
-    var forceChallenge = script.getAttribute('data-force-challenge') === 'true' || window.location.search.indexOf('arcane_challenge=true') !== -1;
-
-    function scanAndInject() {
-      var forms = document.querySelectorAll('form');
-      var found = false;
-      var suspicious = forceChallenge || isSuspicious();
-
-      for (var i = 0; i < forms.length; i++) {
-        var form = forms[i];
-        var passwordFields = form.querySelectorAll('input[type="password"]');
-        if (passwordFields.length > 0) {
-          injectIntoForm(form, { siteKey: siteKey, onVerify: function(token) {} }, suspicious);
-          found = true;
-        }
-      }
-
-      if (suspicious) {
-        setTimeout(function () {
-          showFullScreenChallenge({ siteKey: siteKey, onVerify: function(token) {} });
-        }, found ? 3000 : 500);
-      }
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', scanAndInject);
-    } else {
-      scanAndInject();
-    }
-  }
-
   /* ---- Public API ---- */
 
   function render(container, config) {
@@ -329,14 +291,65 @@
     updateUI();
   }
 
-  window.ArcaneTrust = { render: render };
+  window.ArcaneTrust = { render: render, showChallenge: function(c) { showFullScreenChallenge(c || {}); } };
 
-  /* Auto-init if loaded via script tag with data attributes */
-  if (document.currentScript && document.currentScript.hasAttribute('data-site-key')) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', autoInit);
+  /* Auto-init — handles both inline <script> and dynamically injected scripts */
+  function boot() {
+    var script = document.currentScript;
+    var siteKey = null;
+    var forceChallenge = window.location.search.indexOf('arcane_challenge=true') !== -1;
+
+    if (script && script.hasAttribute('data-site-key')) {
+      siteKey = script.getAttribute('data-site-key');
     } else {
-      autoInit();
+      var scripts = document.querySelectorAll('script[data-site-key]');
+      if (scripts.length > 0) {
+        script = scripts[scripts.length - 1];
+        siteKey = script.getAttribute('data-site-key');
+      }
     }
+
+    if (!siteKey) {
+      if (forceChallenge) {
+        injectStyles();
+        showFullScreenChallenge({});
+      }
+      return;
+    }
+
+    injectStyles();
+
+    function scanAndInject() {
+      var forms = document.querySelectorAll('form');
+      var found = false;
+      var suspicious = forceChallenge || script.getAttribute('data-force-challenge') === 'true' || isSuspicious();
+
+      for (var i = 0; i < forms.length; i++) {
+        var form = forms[i];
+        var passwordFields = form.querySelectorAll('input[type="password"]');
+        if (passwordFields.length > 0) {
+          injectIntoForm(form, { siteKey: siteKey, onVerify: function(token) {} }, suspicious);
+          found = true;
+        }
+      }
+
+      if (suspicious) {
+        setTimeout(function () {
+          showFullScreenChallenge({ siteKey: siteKey, onVerify: function(token) {} });
+        }, found ? 3000 : 500);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', scanAndInject);
+    } else {
+      scanAndInject();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();
