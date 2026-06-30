@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Globe, Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck, Loader2, Shield, RefreshCw, FileText, Search, Code, Monitor, Braces, Server } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -33,6 +33,7 @@ export default function Sites() {
   const [scanningId, setScanningId] = useState<string | null>(null)
   const [verifyError, setVerifyError] = useState('')
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null)
+  const [integrationTab, setIntegrationTab] = useState<Record<string, string>>({})
 
   const fetchSites = async () => {
     const { data } = await supabase.from('sites').select('*').order('created_at', { ascending: false })
@@ -375,7 +376,7 @@ export default function Sites() {
                       )}
 
                       {/* CDN Integration */}
-                      {site.verification_status === 'verified' && (() => {
+                      {site.verification_status === 'verified' && (function () {
                         const CDN_URL = `https://arcane.wsgpolar.me/cdn/trust.js`
                         const snippets: Record<string, { label: string, icon: any, code: string }> = {
                           html: {
@@ -399,7 +400,7 @@ export default function Sites() {
                             code: `// Add to your theme's functions.php\nadd_action('wp_head', function() { ?>\n  <script src="${CDN_URL}" data-site-key="${site.id}"></script>\n<?php });`,
                           },
                         }
-                        const [activeTab, setActiveTab] = React.useState('html')
+                        const activeTab = integrationTab[site.id] || 'html'
                         const tab = snippets[activeTab]
                         return (
                         <div>
@@ -416,7 +417,7 @@ export default function Sites() {
                               return (
                                 <button
                                   key={key}
-                                  onClick={() => setActiveTab(key)}
+                                  onClick={() => setIntegrationTab(prev => ({ ...prev, [site.id]: key }))}
                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                                     activeTab === key
                                       ? 'bg-white text-black'
