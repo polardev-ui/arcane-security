@@ -228,21 +228,24 @@
 
     injectStyles();
 
-    var useOverlay = isSuspicious();
-
     function scanAndInject() {
       var forms = document.querySelectorAll('form');
       var found = false;
+      var suspicious = isSuspicious();
+
       for (var i = 0; i < forms.length; i++) {
         var form = forms[i];
         var passwordFields = form.querySelectorAll('input[type="password"]');
         if (passwordFields.length > 0) {
-          injectIntoForm(form, { siteKey: siteKey, onVerify: function(token) {} }, useOverlay);
+          injectIntoForm(form, { siteKey: siteKey, onVerify: function(token) {} }, suspicious);
           found = true;
         }
       }
-      if (useOverlay && !found) {
-        showFullScreenChallenge({ siteKey: siteKey, onVerify: function(token) {} });
+
+      if (suspicious) {
+        setTimeout(function () {
+          showFullScreenChallenge({ siteKey: siteKey, onVerify: function(token) {} });
+        }, found ? 3000 : 500);
       }
     }
 

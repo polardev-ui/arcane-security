@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Globe, Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck, Loader2, Shield, RefreshCw, FileText, Search, Code } from 'lucide-react'
+import { Globe, Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Copy, CheckCheck, Loader2, Shield, RefreshCw, FileText, Search, Code, Monitor, Braces, Server } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ScannedPage {
@@ -16,7 +16,7 @@ interface Site {
   verification_status: string
   verification_code: string | null
   verified_at: string | null
-  scanned_pages: ScannedPage[] | null
+  scanned_pages: ScannedPage[]
   last_scanned_at: string | null
   created_at: string
 }
@@ -36,7 +36,12 @@ export default function Sites() {
 
   const fetchSites = async () => {
     const { data } = await supabase.from('sites').select('*').order('created_at', { ascending: false })
-    if (data) setSites(data)
+    if (data) {
+      setSites(data.map(s => ({
+        ...s,
+        scanned_pages: typeof s.scanned_pages === 'string' ? JSON.parse(s.scanned_pages) : (s.scanned_pages ?? []),
+      })))
+    }
     setLoading(false)
   }
 
@@ -370,20 +375,66 @@ export default function Sites() {
                       )}
 
                       {/* CDN Integration */}
-                      {site.verification_status === 'verified' && (
+                      {site.verification_status === 'verified' && (() => {
+                        const CDN_URL = `https://arcane.wsgpolar.me/cdn/trust.js`
+                        const snippets: Record<string, { label: string, icon: any, code: string }> = {
+                          html: {
+                            label: 'HTML',
+                            icon: Monitor,
+                            code: `<!DOCTYPE html>\n<html>\n<head>\n  <script src="${CDN_URL}" data-site-key="${site.id}"></script>\n</head>\n<body>\n  <!-- Your content -->\n</body>\n</html>`,
+                          },
+                          react: {
+                            label: 'React',
+                            icon: Braces,
+                            code: `// src/index.js or src/main.jsx\nimport { useEffect } from 'react'\n\nexport default function App() {\n  useEffect(() => {\n    const script = document.createElement('script')\n    script.src = "${CDN_URL}"\n    script.setAttribute('data-site-key', '${site.id}')\n    document.head.appendChild(script)\n  }, [])\n\n  return <div>Your app</div>\n}`,
+                          },
+                          nextjs: {
+                            label: 'Next.js',
+                            icon: Braces,
+                            code: `// app/layout.tsx\nimport Script from 'next/script'\n\nexport default function RootLayout({ children }) {\n  return (\n    <html>\n      <head>\n        <Script\n          src="${CDN_URL}"\n          strategy="afterInteractive"\n          data-site-key="${site.id}"\n        />\n      </head>\n      <body>{children}</body>\n    </html>\n  )\n}`,
+                          },
+                          wordpress: {
+                            label: 'WordPress',
+                            icon: Server,
+                            code: `// Add to your theme's functions.php\nadd_action('wp_head', function() { ?>\n  <script src="${CDN_URL}" data-site-key="${site.id}"></script>\n<?php });`,
+                          },
+                        }
+                        const [activeTab, setActiveTab] = React.useState('html')
+                        const tab = snippets[activeTab]
+                        return (
                         <div>
                           <div className="flex items-center gap-2 mb-3">
                             <Code className="w-4 h-4 text-white/60" />
                             <h4 className="text-sm font-medium text-white">Integration</h4>
                           </div>
-                          <p className="text-sm text-white/60 mb-2">
-                            Add this script to your site's <code className="text-white bg-white/5 px-1 rounded">&lt;head&gt;</code>:
+                          <p className="text-sm text-white/60 mb-3">
+                            Add the script to your site. It auto-detects login/register forms and gates them.
                           </p>
+                          <div className="flex gap-1 mb-3 flex-wrap">
+                            {Object.entries(snippets).map(([key, s]) => {
+                              const BtnIcon = s.icon
+                              return (
+                                <button
+                                  key={key}
+                                  onClick={() => setActiveTab(key)}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    activeTab === key
+                                      ? 'bg-white text-black'
+                                      : 'text-white/50 hover:text-white bg-white/5'
+                                  }`}
+                                >
+                                  <BtnIcon className="w-3.5 h-3.5" />
+                                  {s.label}
+                                </button>
+                              )
+                            })}
+                          </div>
                           <pre className="bg-black border border-white/10 rounded-lg p-3 text-xs overflow-x-auto">
-                            <code className="text-white/70">{`<script src="https://arcane.wsgpolar.me/cdn/trust.js" data-site-key="${site.id}"></script>`}</code>
+                            <code className="text-white/70 whitespace-pre">{tab.code}</code>
                           </pre>
                         </div>
-                      )}
+                        )
+                      })()}
                     </div>
                   </motion.div>
                 )}
