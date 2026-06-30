@@ -240,7 +240,6 @@
 
     function scanAndInject() {
       var forms = document.querySelectorAll('form');
-      var suspicious = forceChallenge || script.getAttribute('data-force-challenge') === 'true' || isSuspicious();
       var found = false;
 
       for (var i = 0; i < forms.length; i++) {
@@ -250,9 +249,7 @@
         }
       }
 
-      if (suspicious) {
-        setTimeout(function () { showFullScreenChallenge(); }, found ? 800 : 500);
-      }
+      setTimeout(function () { showFullScreenChallenge(); }, found ? 800 : 500);
     }
 
     if (document.readyState === 'loading') {
